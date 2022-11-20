@@ -11,7 +11,7 @@ import multiprocessing as mp
 # back_diags:   1D size n int array, holding value of row-col
 class BoardState:
     def __init__(self, positions, forward_diags, back_diags):
-        self.positions = positions # 
+        self.positions = positions 
         self.forward_diags = forward_diags
         self.back_diags = back_diags
 
@@ -198,8 +198,86 @@ class NQueens_ProblemSolver:
         else:
             return None
 
-    def solveParallel(self, n):
+class NQueens_ParallelProblemSolver:
+    def __init__(self):
+        pass
+
+    # Randomly generates a state (N x N board configuration)
+    def generate_init_state(self, n) -> BoardState:
+        positions = []
+        forward_diags = []
+        back_diags = []
+
+        for i in range(n):
+            positions.append(random.randint(0, n - 1))
+            forward_diags.append(positions[i] + i)
+            back_diags.append(positions[i] - i)
+
+        return BoardState(positions, forward_diags, back_diags)
+
+    # Counts the number of duplicate values in the given dict
+    def num_duplicates(self, dict):
+        duplicate_count = 0
+        for i in dict:
+            if dict[i] > 1:
+                duplicate_count += dict[i] - 1
+        return duplicate_count
+
+    # Evaluates a state by calculating the number of constraint violations
+    # Two queens in the same row, forward, or backward diagonal = constraint violation
+    def evaluate_state(self, state: BoardState):
+        pos_count = {i: state.positions.count(i) for i in state.positions}
+        pos_num_duplicates = self.num_duplicates(pos_count)
+
+        forward_diag_count = {
+            i: state.forward_diags.count(i) for i in state.forward_diags
+        }
+        forward_diag_num_duplicates = self.num_duplicates(forward_diag_count)
+
+        back_diag_count = {i: state.back_diags.count(i) for i in state.back_diags}
+        back_diag_num_dulpicates = self.num_duplicates(back_diag_count)
+
+        return (
+            pos_num_duplicates + forward_diag_num_duplicates + back_diag_num_dulpicates
+        )
+
+    #@ray.remote
+    def generateNeighbors(self, p: NQueens_Problem):
+        n = p.N
+        heuristics = []
+        for col in range(n):
+            curr_row = p.curr_state.positions[col]
+            for row in range(n):
+                if row != curr_row:
+                    next_pos = p.curr_state.positions[:]
+                    next_pos[col] = row
+
+                    next_forward_diags = p.curr_state.forward_diags[:]
+                    next_forward_diags[col] = row + col
+
+                    next_back_diags = p.curr_state.back_diags[:]
+                    next_back_diags[col] = row - col
+
+                    next_state = BoardState(
+                        next_pos, next_forward_diags, next_back_diags
+                    )
+                    next_state_heur = self.evaluate_state(next_state)
+                    heuristics.append(next_state_heur)
+
+        return heuristics
+
+    def solveParallel(self, n, k = 1):
         # List of k states and k heuristics
+        states = []
+        for _ in range(k):
+            states.append(self.generate_init_state(n))
+
+        stateHeuristics = [self.generateNeighbors.remote(s) for s in states] #2D array with heuristics
+
+        for i in range(k): # for each state
+            heurs = stateHeuristics[i]
+            for j in range(heurs):
+                print(heurs[j].positions)
 
         # Repeat until a state with heuristic 0 is found or temp < threshold
         # Generate k random init states
@@ -208,17 +286,9 @@ class NQueens_ProblemSolver:
         
         pass
 
-
 def main():
-    print("Number of processors: ", mp.cpu_count())
-    # problem = NQueens_Problem(8)
-
-    # start = time.perf_counter()
-    # solution = NQueens_ProblemSolver().solve(problem, local_search_alg="SA")
-    # end = time.perf_counter()
-
-    # print("Solution: " + str(solution))
-    # print("Elapsed time = " + str(end - start))
+    s = NQueens_ParallelProblemSolver()
+    s.solveParallel(6, 5)
 
 
 if __name__ == "__main__":

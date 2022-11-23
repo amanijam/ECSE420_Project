@@ -62,10 +62,8 @@ def generateNeighbors(states: list[BoardState], i, n):
 
                 next_state = BoardState(next_pos, next_forward_diags, next_back_diags)
                 neighbors.append(next_state)
-    return neighbors.sort(key=getHeur)
+    return neighbors.sort(key=lambda x : x.heur)
 
-def getHeur(state: BoardState):
-    return state.heur
 
 @ray.remote
 def listProbs(states: list[BoardState], t, i, elements_per_process):
@@ -139,6 +137,7 @@ class NQueens_ParallelProblemSolver:
 
             ray_neighbors2d = [generateNeighbors.remote(ray_states, i, n) for i in range(k)]
             allNeighbors2d = ray.get(ray_neighbors2d)
+            print(allNeighbors2d)
             for x in range(k):
                 bestN = allNeighbors2d[x][0]
                 if bestN.heur == 0: return bestN

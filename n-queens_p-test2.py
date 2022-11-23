@@ -117,13 +117,26 @@ class NQueens_ParallelProblemSolver:
             ray_states = ray.put(states)
             futures = [generateRandomNeighbor.remote(ray_states, i, self.n) for i in range(k)] # [ n1, n2, n3 ]
             randomNeighbors = ray.get(futures)
-            for n in randomNeighbors: 
-                if n.heur == 0:
-                    return n
-                if n.heur < best_state.heur:
-                    best_state = n
+            nextStates = []
 
-            states = randomNeighbors
+            for i in range(k):
+                current = states[i]
+                neighbor = randomNeighbors[i] 
+                if neighbor.heur == 0: return neighbor
+                if neighbor.heur < best_state.heur:
+                    best_state = neighbor
+
+                if neighbor.heur < current.heur:
+                    nextStates.append(neighbor)
+                else:
+                    p = math.exp((current.heur - neighbor.heur) / t_k)
+                    select = np.random.choice([0, 1], 1, p=[1 - p, p])[0]
+                    if select == 1:
+                        nextStates.append(neighbor)
+                    else:
+                        nextStates.append(current)
+
+            states = nextStates
 
             # Decrease temperature
             step_count += 1

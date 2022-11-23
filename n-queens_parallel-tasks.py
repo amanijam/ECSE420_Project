@@ -44,7 +44,7 @@ def num_duplicates(dict):
     return duplicate_count
 
 @ray.remote    
-def generateNeighbors(self, states: list[BoardState], i, n):
+def generateNeighbors(states: list[BoardState], i, n):
     s = states[i]
     neighbors = []
     for col in range(n):
@@ -65,7 +65,7 @@ def generateNeighbors(self, states: list[BoardState], i, n):
     return neighbors
 
 @ray.remote
-def listProbs(self, states: list[BoardState], t, i, elements_per_process):
+def listProbs(states: list[BoardState], t, i, elements_per_process):
     p = []
     start_index = i*elements_per_process
     end_index = start_index+elements_per_process
@@ -74,10 +74,11 @@ def listProbs(self, states: list[BoardState], t, i, elements_per_process):
     while x < end_index and x < len_states:
         s = states[x]
         p.append(math.exp(s.heur / t))
+        x += 1
     return p
 
 @ray.remote
-def normalizeProbs(self, probs, normalizer, i, elements_per_process):
+def normalizeProbs(probs, normalizer, i, elements_per_process):
     normal_p = []
     start_index = i*elements_per_process
     end_index = start_index+elements_per_process
@@ -86,6 +87,7 @@ def normalizeProbs(self, probs, normalizer, i, elements_per_process):
     while x < end_index and x < len_probs:
         p = probs[x]
         normal_p.append(p * normalizer)
+        x += 1
     return normal_p
 
 # n: Board size (board is nxn)
@@ -124,8 +126,7 @@ class NQueens_ParallelProblemSolver:
 
         # List of current k states and k processes
         states = []
-        actors = []
-        for i in range(k):
+        for _ in range(k):
             states.append(self.generate_init_state())
             
         best_state = states[0]

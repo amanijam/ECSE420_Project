@@ -15,8 +15,8 @@ class BoardState:
         self.back_diags = back_diags
         self.heur = self.evaluate_state()
 
-    def updateHeuristic(self, h):
-        self.heur = h
+    def updateHeuristic(self):
+        self.heur = self.evaluate_state()
     
     # Evaluates a state by calculating the number of constraint violations
     # Two queens in the same row, forward, or backward diagonal = constraint violation
@@ -50,7 +50,7 @@ def generateRandomNeighbor(states: list[BoardState], i: int, n):
     random_col = random.randint(0, n - 1)
 
     # Choose random row, excluding the row where the queen in column random_col is placed
-    random_row = random.choice([i for i in range(n) if i != s.positions[random_col]])
+    random_row = random.choice([j for j in range(n) if j != s.positions[random_col]])
 
     # Make a copy of the state's positions but changing the position of one random queen
     random_pos = s.positions[:]
@@ -102,18 +102,16 @@ class NQueens_ParallelProblemSolver:
         # List of current k states
         states = []
         next_state = self.generate_init_state()
-        if(next_state.heur == 0): return next_state
         states.append(next_state)
         best_state = next_state
 
         for _ in range(k-1):
             next_state = self.generate_init_state()
-            if(next_state.heur == 0): return next_state
             if(next_state.heur < best_state.heur):
                 best_state = next_state
             states.append(next_state)
 
-        while t_k > t_threshold:            
+        while t_k > t_threshold and best_state.heur != 0:            
             ray_states = ray.put(states)
             futures = [generateRandomNeighbor.remote(ray_states, i, self.n) for i in range(k)] # [ n1, n2, n3 ]
             randomNeighbors = ray.get(futures)
@@ -122,11 +120,10 @@ class NQueens_ParallelProblemSolver:
             for i in range(k):
                 current = states[i]
                 neighbor = randomNeighbors[i] 
-                if neighbor.heur == 0: return neighbor
                 if neighbor.heur < best_state.heur:
                     best_state = neighbor
-
-                if neighbor.heur < current.heur:
+                    nextStates.append(current)
+                elif neighbor.heur < current.heur:
                     nextStates.append(neighbor)
                 else:
                     p = math.exp((current.heur - neighbor.heur) / t_k)

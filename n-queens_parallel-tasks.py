@@ -2,6 +2,7 @@ import random, math, time
 import numpy as np
 import multiprocessing as mp
 import ray
+from operator import attrgetter
 
 # Data structure that holds information about any board state
 # positions:    1D size n int array, holding the row of the queen in each of the n columns
@@ -62,7 +63,8 @@ def generateNeighbors(states: list[BoardState], i, n):
 
                 next_state = BoardState(next_pos, next_forward_diags, next_back_diags)
                 neighbors.append(next_state)
-    return neighbors.sort(key=lambda x : x.heur)
+    #return list.sort(neighbors, key=lambda x : x.heur)
+    return neighbors
 
 
 @ray.remote
@@ -132,15 +134,18 @@ class NQueens_ParallelProblemSolver:
             
         best_state = states[0]
 
-        while t_k > t_threshold and best_state.heur != 0:            
+        while t_k > t_threshold and best_state.heur != 0: 
+            #Eprint("Best state heur: " + str(best_state.heur))           
             ray_states = ray.put(states)
 
             ray_neighbors2d = [generateNeighbors.remote(ray_states, i, n) for i in range(k)]
             allNeighbors2d = ray.get(ray_neighbors2d)
-            print(allNeighbors2d)
+            #print(allNeighbors2d)
             for x in range(k):
-                bestN = allNeighbors2d[x][0]
+                bestN = min(allNeighbors2d[x], key=attrgetter('heur'))
                 if bestN.heur == 0: return bestN
+                if bestN.heur < best_state.heur:
+                    best_state = bestN
 
             allNeighbors = list(np.concatenate(allNeighbors2d).flat)
             ray_neighbors = ray.put(allNeighbors)
@@ -176,7 +181,7 @@ def main():
     ray.init()
     
     start = time.perf_counter()
-    s = NQueens_ParallelProblemSolver(8, 100)
+    s = NQueens_ParallelProblemSolver(8, 8)
     solution = s.solveParallel()
     end = time.perf_counter()
 

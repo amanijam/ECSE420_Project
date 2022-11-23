@@ -1,7 +1,7 @@
 import random, math, time
 import numpy as np
 import multiprocessing as mp
-# import ray
+import ray
 
 # Data structure that holds information about any board state
 # positions:    1D size n int array, holding the row of the queen in each of the n columns
@@ -43,6 +43,29 @@ def num_duplicates(dict):
             duplicate_count += dict[i] - 1
     return duplicate_count
 
+@ray.remote
+def generateNeighbors(states: list[BoardState], i: int, n):
+    s = states[i]
+    neighbors = []
+    for col in range(n):
+        curr_row = s.positions[col]
+        for row in range(n):
+            if row != curr_row:
+                next_pos = s.positions[:]
+                next_pos[col] = row
+
+                next_forward_diags = s.forward_diags[:]
+                next_forward_diags[col] = row + col
+
+                next_back_diags = s.back_diags[:]
+                next_back_diags[col] = row - col
+
+                next_state = BoardState(next_pos, next_forward_diags, next_back_diags)
+                #next_state_heur = self.evaluate_state(next_state)
+                #next_state.addHeuristic(next_state_heur)
+                neighbors.append(next_state)
+
+    return neighbors
 # n: Board size (board is nxn)
 # k: number of parallel processes
 class NQueens_ParallelProblemSolver:
@@ -64,31 +87,6 @@ class NQueens_ParallelProblemSolver:
     
         return BoardState(positions, forward_diags, back_diags)
 
-    #@ray.remote
-    def generateNeighbors(self, states: list[BoardState], i: int):
-        n = self.n
-        s = states[i]
-        neighbors = []
-        for col in range(n):
-            curr_row = s.positions[col]
-            for row in range(n):
-                if row != curr_row:
-                    next_pos = s.positions[:]
-                    next_pos[col] = row
-
-                    next_forward_diags = s.forward_diags[:]
-                    next_forward_diags[col] = row + col
-
-                    next_back_diags = s.back_diags[:]
-                    next_back_diags[col] = row - col
-
-                    next_state = BoardState(next_pos, next_forward_diags, next_back_diags)
-                    #next_state_heur = self.evaluate_state(next_state)
-                    #next_state.addHeuristic(next_state_heur)
-                    neighbors.append(next_state)
-
-        return neighbors
-
     def solveParallel(self) -> BoardState:
         n = self.n
         k = self.k
@@ -104,11 +102,13 @@ class NQueens_ParallelProblemSolver:
 
         # List of current k states
         states = []
-        next_state = self.generate_init_state(n)
+        next_state = self.generate_init_state()
         if(next_state.heur == 0): return next_state
+        states.append(next_state)
         best_state = next_state
+
         for _ in range(k-1):
-            next_state = self.generate_init_state(n)
+            next_state = self.generate_init_state()
             if(next_state.heur == 0): return next_state
             if(next_state.heur < best_state.heur):
                 best_state = next_state
@@ -116,7 +116,7 @@ class NQueens_ParallelProblemSolver:
 
         while t_k > t_threshold:            
             ray_states = ray.put(states)
-            futures = [self.generateNeighbors.remote(ray_states, i) for i in range(k)] # [ [n1], [n2], ..., [nk] ]
+            futures = [generateNeighbors.remote(ray_states, i, self.n) for i in range(k)] # [ [n1], [n2], ..., [nk] ]
             allNeighbors2d = ray.get(futures)
 
             allNeighbors = list(np.concatenate(allNeighbors2d).flat)
@@ -127,8 +127,13 @@ class NQueens_ParallelProblemSolver:
                     best_state = n
                 probabilities.append(math.exp(n.heur / t_k))
 
-            states.clear()
-            states = np.random.choice(allNeighbors, size=k, replace=False, p=probabilities)
+            p_sum = sum(probabilities)
+            normalizer = 1/p_sum
+            normalize_prob = []
+            for p in probabilities:
+                normalize_prob.append(p * normalizer)
+
+            states = np.random.choice(allNeighbors, size=k, replace=False, p=normalize_prob)
 
             # Decrease temperature
             step_count += 1
@@ -139,10 +144,15 @@ class NQueens_ParallelProblemSolver:
         return best_state
 
 def main():
-    # ray.init()
-    s = NQueens_ParallelProblemSolver(6, 5)
-    s.solveParallel()
+    ray.init()
+    
+    start = time.perf_counter()
+    s = NQueens_ParallelProblemSolver(10, 20)
+    solution = s.solveParallel()
+    end = time.perf_counter()
 
+    print("Elapsed time = " + str(end - start))
+    print("Heuristics: " + str(solution.heur))
 
 if __name__ == "__main__":
     main()

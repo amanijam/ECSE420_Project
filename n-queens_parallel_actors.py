@@ -73,15 +73,23 @@ class Process:
 
     def listProbs(self, states: list[BoardState], t, elements_per_process):
         p = []
-        for x in range(elements_per_process):
-            s = states[self.i*elements_per_process+x]
+        start_index = self.i*elements_per_process
+        end_index = start_index+elements_per_process
+        x = start_index
+        len_states = len(states)
+        while x < end_index and x < len_states:
+            s = states[x]
             p.append(math.exp(s.heur / t))
         return p
 
     def normalizeProbs(self, probs, normalizer, elements_per_process):
         normal_p = []
-        for x in range(elements_per_process):
-            p = probs[self.i*elements_per_process+x]
+        start_index = self.i*elements_per_process
+        end_index = start_index+elements_per_process
+        x = start_index
+        len_probs = len(probs)
+        while x < end_index and x < len_probs:
+            p = probs[x]
             normal_p.append(p * normalizer)
         return normal_p
 
@@ -137,7 +145,7 @@ class NQueens_ParallelProblemSolver:
                 allNeighbors += ray.get(ray_ithNeighbors)
             ray_neighbors = ray.put(allNeighbors)
 
-            elements_per_process = len(allNeighbors)/k
+            elements_per_process = int(len(allNeighbors)/k) + 1
 
             probs = []
             for i in range(k):

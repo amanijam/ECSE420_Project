@@ -199,7 +199,7 @@ class NQueens_ProblemSolver:
 
 
 def main():
-    problem = NQueens_Problem(8)
+    problem = NQueens_Problem(40)
 
     start = time.perf_counter()
     solution = NQueens_ProblemSolver().solve(problem, local_search_alg="SA")

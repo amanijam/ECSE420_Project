@@ -115,8 +115,15 @@ class NQueens_ParallelProblemSolver:
 
         while t_k > t_threshold:            
             ray_states = ray.put(states)
-            randomNeighbors = [generateRandomNeighbor.remote(ray_states, i, self.n) for i in range(k)] # [ n1, n2, n3 ]
-            states = ray.get(randomNeighbors)
+            futures = [generateRandomNeighbor.remote(ray_states, i, self.n) for i in range(k)] # [ n1, n2, n3 ]
+            randomNeighbors = ray.get(futures)
+            for n in randomNeighbors: 
+                if n.heur == 0:
+                    return n
+                if n.heur < best_state.heur:
+                    best_state = n
+
+            states = randomNeighbors
 
             # Decrease temperature
             step_count += 1
@@ -130,7 +137,7 @@ def main():
     ray.init()
     
     start = time.perf_counter()
-    s = NQueens_ParallelProblemSolver(10, 20)
+    s = NQueens_ParallelProblemSolver(8, 10)
     solution = s.solveParallel()
     end = time.perf_counter()
 

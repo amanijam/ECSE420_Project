@@ -147,7 +147,7 @@ def main():
     ray.init()
     
     start = time.perf_counter()
-    s = NQueens_ParallelProblemSolver(10, 20)
+    s = NQueens_ParallelProblemSolver(8, 100)
     solution = s.solveParallel()
     end = time.perf_counter()
 

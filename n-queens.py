@@ -10,7 +10,7 @@ import numpy as np
 # back_diags:   1D size n int array, holding value of row-col
 class BoardState:
     def __init__(self, positions, forward_diags, back_diags):
-        self.positions = positions # 
+        self.positions = positions 
         self.forward_diags = forward_diags
         self.back_diags = back_diags
 

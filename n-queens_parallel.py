@@ -8,7 +8,7 @@ from operator import attrgetter
 # positions:    1D size n int array, holding the row of the queen in each of the n columns
 # foward_diags: 1D size n int array, holding value of row+col
 # back_diags:   1D size n int array, holding value of row-col
-# heuristic
+# heuristic:    number of constraint violations
 class BoardState:
     def __init__(self, positions, forward_diags, back_diags):
         self.positions = positions 
@@ -44,6 +44,7 @@ def num_duplicates(dict):
             duplicate_count += dict[i] - 1
     return duplicate_count
 
+# Returns all neighbor states for states[i]
 @ray.remote    
 def generateNeighbors(states: list[BoardState], i, n):
     s = states[i]
@@ -63,10 +64,9 @@ def generateNeighbors(states: list[BoardState], i, n):
 
                 next_state = BoardState(next_pos, next_forward_diags, next_back_diags)
                 neighbors.append(next_state)
-    #return list.sort(neighbors, key=lambda x : x.heur)
     return neighbors
 
-
+# Returns list of probabilities p = e^(heuristic/temp)
 @ray.remote
 def listProbs(states: list[BoardState], t, i, elements_per_process):
     p = []
@@ -80,6 +80,7 @@ def listProbs(states: list[BoardState], t, i, elements_per_process):
         x += 1
     return p
 
+# Noramlizes the lsit of probabilites (to sum up to 1)
 @ray.remote
 def normalizeProbs(probs, normalizer, i, elements_per_process):
     normal_p = []
@@ -134,13 +135,14 @@ class NQueens_ParallelProblemSolver:
             
         best_state = states[0]
 
-        while t_k > t_threshold and best_state.heur != 0: 
-            #Eprint("Best state heur: " + str(best_state.heur))           
+        while t_k > t_threshold and best_state.heur != 0:       
             ray_states = ray.put(states)
 
+            # generate all neighbors for each of the k states (in parallel)
             ray_neighbors2d = [generateNeighbors.remote(ray_states, i, n) for i in range(k)]
             allNeighbors2d = ray.get(ray_neighbors2d)
-            #print(allNeighbors2d)
+
+            # update best state
             for x in range(k):
                 bestN = min(allNeighbors2d[x], key=attrgetter('heur'))
                 if bestN.heur == 0: return bestN
@@ -152,19 +154,23 @@ class NQueens_ParallelProblemSolver:
 
             elements_per_process = int(len(allNeighbors)/k) + 1
 
+            # generate a list of probabilities proportional to e^(heuristic/temp) (in parallel)
             ray_allProbs2d = [listProbs.remote(ray_neighbors, t_k, i, elements_per_process) for i in range(k)]
             allProbs2d = ray.get(ray_allProbs2d)
             allProbs = list(np.concatenate(allProbs2d).flat)
             ray_allProbs = ray.put(allProbs)
 
+            # normalize the list of probabilities (in parallel)
             p_sum = sum(allProbs)
             normalizer = 1/p_sum
             ray_normalProbs2d = [normalizeProbs.remote(ray_allProbs, normalizer, i, elements_per_process) for i in range(k)]
             normalProbs2d = ray.get(ray_normalProbs2d)
             normalProbs = list(np.concatenate(normalProbs2d).flat)
         
+            # randomly choose k neighbor states with proability proportional to e^(heuristic/temp)
             states = np.random.choice(allNeighbors, size=k, replace=False, p=normalProbs)
 
+            # update best state
             for s in states:
                 if s.heur < best_state.heur: 
                     best_state = s

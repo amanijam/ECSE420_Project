@@ -19,4 +19,4 @@ To run the parallel program, run the following:
 python n-queens_parallel.py --n --h
 ```
 
-The argument "n" corresponds to the board size N for an NxN chess board. In addition, "k" corresopnds to the number of parallel processes. 
+The argument "n" corresponds to the board size N for an NxN chess board. In addition, "k" corresponds to the number of parallel processes. 

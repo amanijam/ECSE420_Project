@@ -1,8 +1,8 @@
 import random, math, time
 import numpy as np
-import multiprocessing as mp
 import ray
 from operator import attrgetter
+import argparse
 
 # Data structure that holds information about any board state
 # positions:    1D size n int array, holding the row of the queen in each of the n columns
@@ -183,15 +183,25 @@ class NQueens_ParallelProblemSolver:
 
         return best_state
 
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n", type=int, default=8, help="size N for the NxN board")
+    parser.add_argument("--k", type=int, default=4, help="number of parallel tasks")
+    args = parser.parse_args()
+    return args
+
+
 def main():
     ray.init()
-    
+
+    args = get_args()
     start = time.perf_counter()
-    s = NQueens_ParallelProblemSolver(8, 8)
-    solution = s.solveParallel()
+    solver = NQueens_ParallelProblemSolver(args.n, args.k)
+    solution = solver.solveParallel()
     end = time.perf_counter()
 
     print("Elapsed time = " + str(end - start))
+    print("Solution: " + str(solution.positions))
     print("Heuristics: " + str(solution.heur))
 
 if __name__ == "__main__":

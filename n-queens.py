@@ -1,5 +1,6 @@
 import random, math, time
 import numpy as np
+import argparse
 
 # Author:       Amani Jammoul
 # McGill ID:    260381641
@@ -187,7 +188,7 @@ class NQueens_ProblemSolver:
                 step_count = 0
                 t_k = t_k * alpha
 
-        return best_state.positions
+        return best_state
 
     def solve(self, problem, local_search_alg="SA"):
         if local_search_alg == "hill climbing":
@@ -198,15 +199,24 @@ class NQueens_ProblemSolver:
             return None
 
 
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n", type=int, default=8, help="size N for the NxN board")
+    args = parser.parse_args()
+    return args
+
 def main():
-    problem = NQueens_Problem(40)
+    args = get_args()
+    problem = NQueens_Problem(args.n)
 
     start = time.perf_counter()
-    solution = NQueens_ProblemSolver().solve(problem, local_search_alg="SA")
+    solver = NQueens_ProblemSolver()
+    solution = solver.solve(problem, local_search_alg="SA")
     end = time.perf_counter()
 
-    print("Solution: " + str(solution))
     print("Elapsed time = " + str(end - start))
+    print("Solution: " + str(solution.positions))
+    print("Heuristic: " + str(solver.evaluate_state(solution)))
 
 
 if __name__ == "__main__":
